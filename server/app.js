@@ -9,35 +9,38 @@ const app = express()
 const server = createServer(app)
 const io = new Server(server, { cors: { origin: "http://localhost:5173" } })
 
-const players = []
-const games = []
+let players = []
+let games = []
 
 app.get("/", (req, res) => res.send("Hello World!"))
 
 io.on("connection", (socket) => {
   console.log("a user connected")
 
+  io.emit("player list", players)
+
   socket.on("create player", (username) => {
     const player = new Player(username)
-
+    socket.player = player
+    players.push(player)
     socket.emit("player created", player)
+    io.emit("player list", players)
   })
 
   socket.on("find game", () => {
-    console.log("finding a game")
-
-    let game = games.find((game) => game.private === false && game.players.length === 1)
-
+    let game = games.find((game) => game.isPrivate === false && game.players.length === 1)
     if (!game) {
       game = new Game()
       games.push(game)
     }
-
-    socket.emit("game found", { game })
+    socket.emit("game found", game)
   })
 
   socket.on("disconnect", () => {
-    console.log("a user disconnected")
+    if (socket.player) {
+      players = players.filter((player) => player !== socket.player)
+      io.emit("player list", players)
+    }
   })
 })
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { create } from "zustand"
-import { Box, Button, Center, Container, Heading, Input, Stack } from "@chakra-ui/react"
+import { Box, Button, Center, Container, Heading, Input, Stack, Stat, StatLabel, StatNumber } from "@chakra-ui/react"
 import { socket } from "./socket"
 
 const useStore = create((set) => ({
@@ -12,17 +12,35 @@ const useStore = create((set) => ({
 
 function App() {
   const player = useStore((state) => state.player)
+  const game = useStore((state) => state.game)
   const setPlayer = useStore((state) => state.setPlayer)
+  const setGame = useStore((state) => state.setGame)
+
+  const [playerList, setPlayerList] = useState([])
 
   useEffect(() => {
     function onPlayerCreated(player) {
       setPlayer(player)
     }
 
+    function onGameFound(game) {
+      setGame(game)
+    }
+
+    function onPlayerList(players) {
+      setPlayerList(players)
+    }
+
     socket.on("player created", onPlayerCreated)
+    socket.on("game found", onGameFound)
+
+    socket.on("player list", onPlayerList)
 
     return () => {
       socket.off("player created", onPlayerCreated)
+      socket.off("game found", onGameFound)
+
+      socket.off("player list", onPlayerList)
     }
   })
 
@@ -33,7 +51,12 @@ function App() {
           TicTacToe
         </Heading>
 
-        {!player ? <PlayerForm /> : <Menu />}
+        <Stat position="absolute" top="1rem" left="1rem">
+          <StatNumber>{playerList.length}</StatNumber>
+          <StatLabel>Users connected</StatLabel>
+        </Stat>
+
+        {!player ? <PlayerForm /> : !game ? <Menu /> : <Game />}
       </Box>
     </Center>
   )
@@ -50,7 +73,6 @@ function PlayerForm() {
       return
     }
 
-    socket.connect()
     socket.emit("create player", username)
   }
 
@@ -67,12 +89,49 @@ function PlayerForm() {
 }
 
 function Menu() {
+  function handlePlay() {
+    socket.emit("find game")
+  }
+
   return (
     <Container>
       <Stack>
-        <Button>Play</Button>
+        <Button onClick={handlePlay}>Play</Button>
         <Button>Create private game</Button>
       </Stack>
+    </Container>
+  )
+}
+
+function getMark(value) {
+  switch (value) {
+    case 0:
+      return "X"
+    case 1:
+      return "O"
+    case null:
+      return ""
+    default:
+      break
+  }
+}
+
+function Game() {
+  const game = useStore((state) => state.game)
+
+  function play(index) {
+    socket.emit("play", index)
+  }
+
+  return (
+    <Container>
+      <Box className="gameboard">
+        {game.board.map((square, index) => (
+          <button key={index} onClick={() => play(index)} disabled={square !== null}>
+            {getMark(square)}
+          </button>
+        ))}
+      </Box>
     </Container>
   )
 }

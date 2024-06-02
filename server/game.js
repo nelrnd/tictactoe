@@ -10,10 +10,11 @@ const winningPatterns = [
 ]
 
 class Game {
-  constructor() {
+  constructor(isPrivate = false) {
     this.board = new Array(9).fill(null)
     this.players = []
     this.turn = 0
+    this.isPrivate = isPrivate
   }
 
   addPlayer(player) {
