@@ -1,13 +1,48 @@
-import { Box, Button, Center, Container, Heading, Input, Stack } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
+import { create } from "zustand"
+import { Box, Button, Center, Container, Heading, Input, Stack } from "@chakra-ui/react"
 import { socket } from "./socket"
 
-function App() {
-  const [isConnected, setIsConnected] = useState(false)
-  const [username, setUsername] = useState("")
-  const [stage, setStage] = useState(0)
+const useStore = create((set) => ({
+  player: null,
+  game: null,
+  setPlayer: (newPlayer) => set({ player: newPlayer }),
+  setGame: (newGame) => set({ game: newGame }),
+}))
 
-  function handleContinue(event) {
+function App() {
+  const player = useStore((state) => state.player)
+  const setPlayer = useStore((state) => state.setPlayer)
+
+  useEffect(() => {
+    function onPlayerCreated(player) {
+      setPlayer(player)
+    }
+
+    socket.on("player created", onPlayerCreated)
+
+    return () => {
+      socket.off("player created", onPlayerCreated)
+    }
+  })
+
+  return (
+    <Center minH="100vh">
+      <Box>
+        <Heading as="h1" size="4xl" textAlign="center" paddingBottom="2rem">
+          TicTacToe
+        </Heading>
+
+        {!player ? <PlayerForm /> : <Menu />}
+      </Box>
+    </Center>
+  )
+}
+
+function PlayerForm() {
+  const [username, setUsername] = useState("")
+
+  function handleSubmit(event) {
     event.preventDefault()
 
     if (username.trim() === "") {
@@ -15,59 +50,30 @@ function App() {
       return
     }
 
-    setStage((stage) => ++stage)
+    socket.connect()
+    socket.emit("create player", username)
   }
 
-  useEffect(() => {
-    function onConnect() {
-      setIsConnected(true)
-    }
-
-    function onDisconnect() {
-      setIsConnected(false)
-    }
-
-    socket.on("connect", onConnect)
-    socket.on("disconnect", onDisconnect)
-
-    return () => {
-      socket.off("connect", onConnect)
-      socket.off("disconnect", onDisconnect)
-    }
-  }, [])
-
   return (
-    <Center h="100vh">
-      <Box>
-        <Heading as="h1" size="4xl" textAlign="center" paddingBottom="2rem">
-          TicTacToe
-        </Heading>
+    <Container>
+      <form onSubmit={handleSubmit}>
+        <Stack>
+          <Input placeholder="Your username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+          <Button type="submit">Continue</Button>
+        </Stack>
+      </form>
+    </Container>
+  )
+}
 
-        <p>{isConnected ? "online" : "disconnected"}</p>
-
-        <Container>
-          {stage === 0 && (
-            <form onSubmit={handleContinue}>
-              <Stack>
-                <Input
-                  placeholder="Your username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
-                <Button type="submit">Continue</Button>
-              </Stack>
-            </form>
-          )}
-          {stage === 1 && (
-            <Stack>
-              <Button>Play</Button>
-              <Button>Create private room</Button>
-            </Stack>
-          )}
-        </Container>
-      </Box>
-    </Center>
+function Menu() {
+  return (
+    <Container>
+      <Stack>
+        <Button>Play</Button>
+        <Button>Create private game</Button>
+      </Stack>
+    </Container>
   )
 }
 
