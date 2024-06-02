@@ -15,7 +15,7 @@ app.get("/", (req, res) => res.send("Hello World!"))
 io.on("connection", (socket) => {
   console.log("a user connected")
 
-  socket.on("disconnection", () => {
+  socket.on("disconnect", () => {
     console.log("a user disconnected")
   })
 })

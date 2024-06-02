@@ -1,7 +1,9 @@
 import { Box, Button, Center, Container, Heading, Input, Stack } from "@chakra-ui/react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { socket } from "./socket"
 
 function App() {
+  const [isConnected, setIsConnected] = useState(false)
   const [username, setUsername] = useState("")
   const [stage, setStage] = useState(0)
 
@@ -16,12 +18,32 @@ function App() {
     setStage((stage) => ++stage)
   }
 
+  useEffect(() => {
+    function onConnect() {
+      setIsConnected(true)
+    }
+
+    function onDisconnect() {
+      setIsConnected(false)
+    }
+
+    socket.on("connect", onConnect)
+    socket.on("disconnect", onDisconnect)
+
+    return () => {
+      socket.off("connect", onConnect)
+      socket.off("disconnect", onDisconnect)
+    }
+  }, [])
+
   return (
     <Center h="100vh">
       <Box>
         <Heading as="h1" size="4xl" textAlign="center" paddingBottom="2rem">
           TicTacToe
         </Heading>
+
+        <p>{isConnected ? "online" : "disconnected"}</p>
 
         <Container>
           {stage === 0 && (
@@ -33,7 +55,7 @@ function App() {
                   onChange={(e) => setUsername(e.target.value)}
                   required
                 />
-                <Button>Continue</Button>
+                <Button type="submit">Continue</Button>
               </Stack>
             </form>
           )}
