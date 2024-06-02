@@ -67,27 +67,29 @@ function App() {
   })
 
   return (
+    <>
+      <Stat position="absolute" top="1rem" left="1rem">
+        <StatNumber>{playerList.length}</StatNumber>
+        <StatLabel>Users connected</StatLabel>
+      </Stat>
+
+      {!game ? <Home /> : <Game />}
+    </>
+  )
+}
+
+function Home() {
+  const player = useStore((state) => state.player)
+
+  return (
     <Center minH="100vh">
-      <Box>
-        <Heading as="h1" size="4xl" textAlign="center" paddingBottom="2rem">
+      <Container>
+        <Heading as="h1" fontSize="6xl" textAlign="center" paddingBottom="2rem">
           TicTacToe
         </Heading>
 
-        <Stat position="absolute" top="1rem" left="1rem">
-          <StatNumber>{playerList.length}</StatNumber>
-          <StatLabel>Users connected</StatLabel>
-        </Stat>
-
-        {!player ? (
-          <PlayerForm />
-        ) : !game ? (
-          <Menu />
-        ) : game.players.length === 1 ? (
-          <Loading message="Waiting for another player to join..." />
-        ) : (
-          <Game />
-        )}
-      </Box>
+        {!player ? <PlayerForm /> : <Menu />}
+      </Container>
     </Center>
   )
 }
@@ -110,8 +112,16 @@ function PlayerForm() {
     <Container>
       <form onSubmit={handleSubmit}>
         <Stack>
-          <Input placeholder="Your username" value={username} onChange={(e) => setUsername(e.target.value)} required />
-          <Button colorScheme="blue" type="submit">
+          <Input
+            placeholder="Your username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            color="black"
+            backgroundColor="white"
+            size="lg"
+            required
+          />
+          <Button colorScheme="pink" size="lg" type="submit">
             Continue
           </Button>
         </Stack>
@@ -130,11 +140,15 @@ function Menu() {
   return (
     <Container>
       <Stack>
-        <Text fontSize="lg">Welcome, {player.username}!</Text>
-        <Button colorScheme="blue" onClick={handlePlay}>
+        <Text fontSize="xl" paddingBottom="1rem">
+          Welcome, {player.username}!
+        </Text>
+        <Button colorScheme="pink" size="lg" onClick={handlePlay}>
           Play
         </Button>
-        <Button>Create private game</Button>
+        <Button colorScheme="purple" size="lg">
+          Create private game
+        </Button>
       </Stack>
     </Container>
   )
@@ -156,7 +170,28 @@ function getMark(value) {
 function Game() {
   const player = useStore((state) => state.player)
   const game = useStore((state) => state.game)
+  const myTurn = game.players[game.turn].id === player.id
 
+  return (
+    <Container minH="100vh" display="flex" flexDirection="column">
+      <Header />
+      <Center flex="1">
+        {game.players.length === 1 ? (
+          <Loading message="Waiting for another player to join..." />
+        ) : (
+          <>
+            <Board />
+            <Message>{myTurn ? "It's your turn" : "Waiting for your turn"}</Message>
+          </>
+        )}
+      </Center>
+    </Container>
+  )
+}
+
+function Board() {
+  const player = useStore((state) => state.player)
+  const game = useStore((state) => state.game)
   const myTurn = game.players[game.turn].id === player.id
 
   function play(index) {
@@ -164,28 +199,50 @@ function Game() {
   }
 
   return (
-    <Container>
-      <Box className="gameboard">
-        {game.board.map((square, index) => (
-          <button key={index} onClick={() => play(index)} disabled={square !== null || !myTurn}>
-            {getMark(square)}
-          </button>
-        ))}
-      </Box>
-
-      <Card>
-        <Text>{myTurn ? "It's your turn" : "Waiting for your turn"}</Text>
-      </Card>
-    </Container>
+    <Box className="gameboard">
+      {game.board.map((square, index) => (
+        <button key={index} onClick={() => play(index)} disabled={square !== null || !myTurn}>
+          {getMark(square)}
+        </button>
+      ))}
+      <svg width="858" height="858" viewBox="0 0 858 858" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M568 846L568 12" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
+        <path d="M290 846L290 12" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
+        <path d="M12 568L846 568" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
+        <path d="M12 290L846 290" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
+      </svg>
+    </Box>
   )
 }
 
 function Loading({ message }) {
   return (
-    <Container>
-      <Spinner />
-      <Text>{message}</Text>
-    </Container>
+    <Stack spacing={4} align="center">
+      <Spinner size="xl" speed="0.65s" thickness="4px" color="pink.500" emptyColor="gray.200" />
+      {message && (
+        <Text fontSize="xl" textAlign="center">
+          {message}
+        </Text>
+      )}
+    </Stack>
+  )
+}
+
+function Header() {
+  return (
+    <Box as="header" padding="1rem">
+      <Heading as="h1" size="md" textAlign="center">
+        TicTacToe
+      </Heading>
+    </Box>
+  )
+}
+
+function Message({ children }) {
+  return (
+    <Card padding="2rem" border="solid 1px" borderColor="gray.200" position="absolute" bottom="1rem">
+      <Text>{children}</Text>
+    </Card>
   )
 }
 
