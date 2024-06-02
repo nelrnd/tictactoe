@@ -12,36 +12,58 @@ const io = new Server(server, { cors: { origin: "http://localhost:5173" } })
 let players = []
 let games = []
 
-app.get("/", (req, res) => res.send("Hello World!"))
-
 io.on("connection", (socket) => {
-  console.log("a user connected")
+  let player
+  let game
 
-  io.emit("player list", players)
+  emitPlayerList()
 
   socket.on("create player", (username) => {
-    const player = new Player(username)
-    socket.player = player
+    player = new Player(username)
     players.push(player)
     socket.emit("player created", player)
-    io.emit("player list", players)
+    emitPlayerList()
   })
 
   socket.on("find game", () => {
-    let game = games.find((game) => game.isPrivate === false && game.players.length === 1)
+    game = games.find((game) => game.isPrivate === false && game.players.length === 1)
     if (!game) {
       game = new Game()
       games.push(game)
     }
-    socket.emit("game found", game)
+    game.addPlayer(player)
+    socket.join(game.id)
+    emitGame()
+  })
+
+  socket.on("play", (index) => {
+    if (game.players[game.turn].id !== player.id) {
+      return // not your turn
+    }
+
+    game.play(index)
+    emitGame()
   })
 
   socket.on("disconnect", () => {
-    if (socket.player) {
-      players = players.filter((player) => player !== socket.player)
-      io.emit("player list", players)
+    if (player) {
+      players = players.filter((p) => p !== player)
+      emitPlayerList()
+    }
+    if (game) {
+      if (game.players.length === 1) {
+        games = games.filter((g) => g.id !== game.id)
+      }
     }
   })
+
+  function emitGame() {
+    io.to(game.id).emit("update game", game)
+  }
+
+  function emitPlayerList() {
+    io.emit("player list", players)
+  }
 })
 
 const PORT = process.env.PORT || 3000

@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react"
 import { create } from "zustand"
-import { Box, Button, Center, Container, Heading, Input, Stack, Stat, StatLabel, StatNumber } from "@chakra-ui/react"
+import {
+  Box,
+  Button,
+  Card,
+  Center,
+  Container,
+  Heading,
+  Input,
+  Spinner,
+  Stack,
+  Stat,
+  StatLabel,
+  StatNumber,
+  Text,
+} from "@chakra-ui/react"
 import { socket } from "./socket"
 
 const useStore = create((set) => ({
@@ -25,22 +39,30 @@ function App() {
 
     function onGameFound(game) {
       setGame(game)
+      console.log(game.id)
     }
 
     function onPlayerList(players) {
       setPlayerList(players)
+      console.log(players)
+    }
+
+    function onUpdateGame(game) {
+      setGame(game)
+      console.log("update")
+      console.log(game)
     }
 
     socket.on("player created", onPlayerCreated)
     socket.on("game found", onGameFound)
-
     socket.on("player list", onPlayerList)
+    socket.on("update game", onUpdateGame)
 
     return () => {
       socket.off("player created", onPlayerCreated)
       socket.off("game found", onGameFound)
-
       socket.off("player list", onPlayerList)
+      socket.off("update game", onUpdateGame)
     }
   })
 
@@ -56,7 +78,15 @@ function App() {
           <StatLabel>Users connected</StatLabel>
         </Stat>
 
-        {!player ? <PlayerForm /> : !game ? <Menu /> : <Game />}
+        {!player ? (
+          <PlayerForm />
+        ) : !game ? (
+          <Menu />
+        ) : game.players.length === 1 ? (
+          <Loading message="Waiting for another player to join..." />
+        ) : (
+          <Game />
+        )}
       </Box>
     </Center>
   )
@@ -81,7 +111,9 @@ function PlayerForm() {
       <form onSubmit={handleSubmit}>
         <Stack>
           <Input placeholder="Your username" value={username} onChange={(e) => setUsername(e.target.value)} required />
-          <Button type="submit">Continue</Button>
+          <Button colorScheme="blue" type="submit">
+            Continue
+          </Button>
         </Stack>
       </form>
     </Container>
@@ -89,6 +121,8 @@ function PlayerForm() {
 }
 
 function Menu() {
+  const player = useStore((state) => state.player)
+
   function handlePlay() {
     socket.emit("find game")
   }
@@ -96,7 +130,10 @@ function Menu() {
   return (
     <Container>
       <Stack>
-        <Button onClick={handlePlay}>Play</Button>
+        <Text fontSize="lg">Welcome, {player.username}!</Text>
+        <Button colorScheme="blue" onClick={handlePlay}>
+          Play
+        </Button>
         <Button>Create private game</Button>
       </Stack>
     </Container>
@@ -117,7 +154,10 @@ function getMark(value) {
 }
 
 function Game() {
+  const player = useStore((state) => state.player)
   const game = useStore((state) => state.game)
+
+  const myTurn = game.players[game.turn].id === player.id
 
   function play(index) {
     socket.emit("play", index)
@@ -127,11 +167,24 @@ function Game() {
     <Container>
       <Box className="gameboard">
         {game.board.map((square, index) => (
-          <button key={index} onClick={() => play(index)} disabled={square !== null}>
+          <button key={index} onClick={() => play(index)} disabled={square !== null || !myTurn}>
             {getMark(square)}
           </button>
         ))}
       </Box>
+
+      <Card>
+        <Text>{myTurn ? "It's your turn" : "Waiting for your turn"}</Text>
+      </Card>
+    </Container>
+  )
+}
+
+function Loading({ message }) {
+  return (
+    <Container>
+      <Spinner />
+      <Text>{message}</Text>
     </Container>
   )
 }

@@ -1,3 +1,5 @@
+const { v4: uuidv4 } = require("uuid")
+
 const winningPatterns = [
   "111000000",
   "000111000",
@@ -11,6 +13,7 @@ const winningPatterns = [
 
 class Game {
   constructor(isPrivate = false) {
+    this.id = uuidv4()
     this.board = new Array(9).fill(null)
     this.players = []
     this.turn = 0
@@ -18,7 +21,7 @@ class Game {
   }
 
   addPlayer(player) {
-    if (this.player.length === 2) {
+    if (this.players.length === 2) {
       return // max nb of players reached
     }
 
@@ -34,12 +37,12 @@ class Game {
 
     this.switchTurn()
 
-    const win = checkIfWin()
+    const win = this.checkIfWin()
     if (win !== null) {
       console.log(win + " has won")
     }
 
-    const full = checkIfFull()
+    const full = this.checkIfFull()
     if (full) {
       console.log("This is a draw")
     }

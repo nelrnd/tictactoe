@@ -9,3 +9,8 @@
   height: 200px;
   border: solid 1px grey;
 }
+
+.gameboard button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
