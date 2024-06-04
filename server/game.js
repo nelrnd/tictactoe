@@ -39,12 +39,22 @@ class Game {
 
     const win = this.checkIfWin()
     if (win !== null) {
-      console.log(win + " has won")
+      this.reset()
+      this.players = this.players.map((player) => ({
+        ...player,
+        score: {
+          ...player.score,
+          wins: win.id === player.id ? player.score.wins++ : player.score.wins,
+          losses: win.id !== player.id ? player.score.losses++ : player.score.losses,
+        },
+      }))
+      return { type: "win", player: win }
     }
 
     const full = this.checkIfFull()
     if (full) {
-      console.log("This is a draw")
+      this.reset()
+      return { type: "draw" }
     }
   }
 
@@ -68,7 +78,7 @@ class Game {
             }
           })
         if (patternWin) {
-          win = player
+          win = this.players[player]
           return false
         }
         return true

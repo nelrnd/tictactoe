@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useState } from "react"
 import { create } from "zustand"
 import {
   Box,
@@ -25,7 +25,6 @@ const useStore = create((set) => ({
 }))
 
 function App() {
-  const player = useStore((state) => state.player)
   const game = useStore((state) => state.game)
   const setPlayer = useStore((state) => state.setPlayer)
   const setGame = useStore((state) => state.setGame)
@@ -73,7 +72,9 @@ function App() {
         <StatLabel>Users connected</StatLabel>
       </Stat>
 
-      {!game ? <Home /> : <Game />}
+      {<Test />}
+
+      {/*!game ? <Home /> : <Game />*/}
     </>
   )
 }
@@ -241,8 +242,57 @@ function Header() {
 function Message({ children }) {
   return (
     <Card padding="2rem" border="solid 1px" borderColor="gray.200" position="absolute" bottom="1rem">
-      <Text>{children}</Text>
+      <Text fontSize="4xl">{children}</Text>
     </Card>
+  )
+}
+
+function Test() {
+  const game = {
+    id: 123,
+    board: [0, null, null, 1, 0, null, null, 1, 0],
+    players: [],
+    turn: 1,
+    isPrivate: false,
+  }
+
+  function play(index) {
+    socket.emit("play", index)
+  }
+
+  useLayoutEffect(() => {
+    const winningSquares = [0, 4, 8]
+    animateBlink(winningSquares)
+  }, [])
+
+  function animateBlink(indexArr) {
+    const buttons = document.querySelectorAll(".gameboard button")
+    buttons.forEach((button, index) => {
+      if (indexArr.includes(index)) {
+        button.classList.add("blink")
+        button.addEventListener("animationend", () => button.classList.remove("blink"), false)
+      }
+    })
+  }
+
+  return (
+    <Container minH="100vh" display="flex" flexDirection="column">
+      <Center flex="1">
+        <Box className="gameboard">
+          {game.board.map((square, index) => (
+            <button key={index} onClick={() => play(index)}>
+              {getMark(square)}
+            </button>
+          ))}
+          <svg width="858" height="858" viewBox="0 0 858 858" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M568 846L568 12" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
+            <path d="M290 846L290 12" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
+            <path d="M12 568L846 568" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
+            <path d="M12 290L846 290" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
+          </svg>
+        </Box>
+      </Center>
+    </Container>
   )
 }
 
