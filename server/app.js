@@ -37,7 +37,7 @@ class Player {
 
   updateScore(type) {
     this.score[type]++
-    this.socket.emit("new score", this.score)
+    this.socket.emit("score update", this.score)
   }
 }
 
@@ -74,8 +74,8 @@ class Game {
   removePlayer(player) {
     this.players = this.players.filter((p) => p.id !== player.id)
     this.end()
-    this.io.to(this.id).emit("user left")
     player.socket.leave(this.id)
+    this.io.to(this.id).emit("user left")
   }
 
   start() {
@@ -218,12 +218,15 @@ io.on("connection", (socket) => {
     game.play(index)
   })
 
+  socket.on("user left", () => {
+    game.removePlayer(player)
+    removeGame(player)
+    game = null
+  })
+
   socket.on("disconnect", () => {
     if (player && game) {
       game.removePlayer(player)
-      if (game.players.length === 0) {
-        removeGame(game)
-      }
     }
   })
 })

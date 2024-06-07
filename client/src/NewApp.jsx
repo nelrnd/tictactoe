@@ -31,6 +31,7 @@ function App() {
 
     function onUserLeft() {
       setGame(null)
+      socket.emit("user left")
     }
 
     function onGameWin(result) {
@@ -44,12 +45,17 @@ function App() {
       setWait(true)
     }
 
+    function onScoreUpdate(score) {
+      setPlayer({ ...player, score })
+    }
+
     socket.on("new player", onNewPlayer)
     socket.on("game start", onGameStart)
     socket.on("game update", onGameUpdate)
     socket.on("user left", onUserLeft)
     socket.on("game win", onGameWin)
     socket.on("game draw", onGameDraw)
+    socket.on("score update", onScoreUpdate)
 
     return () => {
       socket.off("new player", onNewPlayer)
@@ -58,6 +64,7 @@ function App() {
       socket.off("user left", onUserLeft)
       socket.off("game win", onGameWin)
       socket.off("game draw", onGameDraw)
+      socket.off("score update", onScoreUpdate)
     }
   }, [player, setMessage, setWait])
 
@@ -119,6 +126,7 @@ function Game({ game, player }) {
       <h1>Playing against {otherPlayerUsername}</h1>
       <Message />
       <Board board={game.board} myTurn={myTurn} />
+      <Score score={player.score} />
     </div>
   )
 }
@@ -156,4 +164,25 @@ function Message() {
   const message = useStore((state) => state.message)
 
   return <p>{message}</p>
+}
+
+function Score({ score }) {
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Wins</th>
+          <th>Looses</th>
+          <th>Draws</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>{score.wins}</td>
+          <td>{score.losses}</td>
+          <td>{score.draws}</td>
+        </tr>
+      </tbody>
+    </table>
+  )
 }
