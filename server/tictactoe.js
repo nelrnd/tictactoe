@@ -1,12 +1,4 @@
-require("dotenv").config()
-const express = require("express")
-const { createServer } = require("node:http")
-const { Server } = require("socket.io")
 const { v4: uuidv4 } = require("uuid")
-
-const app = express()
-const server = createServer(app)
-const io = new Server(server, { cors: { origin: "http://localhost:5173" } })
 
 const winningPatterns = [
   "111000000",
@@ -27,14 +19,6 @@ class Player {
     this.score = { wins: 0, losses: 0, draws: 0 }
   }
 
-  get clientPlayer() {
-    return {
-      id: this.id,
-      username: this.username,
-      score: this.score,
-    }
-  }
-
   updateScore(type) {
     this.score[type]++
     this.socket.emit("new score", this.score)
@@ -51,35 +35,17 @@ class Game {
     this.turn = 0
   }
 
-  get clientGame() {
-    return {
-      id: this.id,
-      board: this.board,
-      players: this.players.map((player) => player.clientPlayer),
-      turn: this.turn,
-    }
-  }
-
   addPlayer(player) {
-    if (this.players.length === 2 || this.players.find((p) => p.id === player.id)) {
+    if (this.players.length === 2) {
       return // max nb of players reached
     }
     this.players.push(player)
     player.socket.join(this.id)
-    if (this.players.length === 2) {
-      this.start()
-    }
   }
 
   removePlayer(player) {
     this.players = this.players.filter((p) => p.id !== player.id)
-    this.end()
-    this.io.to(this.id).emit("user left")
     player.socket.leave(this.id)
-  }
-
-  start() {
-    this.io.to(this.id).emit("game start", this.clientGame)
   }
 
   play(index) {
@@ -89,26 +55,21 @@ class Game {
 
     this.board[index] = this.turn // 0 | 1
 
-    this.switchTurn()
-
-    this.updateClient()
-
     const win = this.checkIfWin()
-    const draw = this.checkIfDraw()
-
-    if (win || draw) {
-      if (win) {
-        this.io.to(this.id).emit("game win", win)
-        this.updateScores(win)
-      } else {
-        this.io.to(this.id).emit("game draw", draw)
-        this.updateScores({ type: "draws" })
-      }
-      setTimeout(() => {
-        this.end()
-        this.updateClient()
-      }, 2000)
+    if (win) {
+      this.io.to(this.id).emit("win", win)
+      this.updateScores(win)
+      return this.endGame()
     }
+
+    const full = this.checkIfFull()
+    if (full) {
+      this.io.to(this.id).emit("full", full)
+      this.updateScores({ type: "full" })
+      return this.endGame()
+    }
+
+    this.switchTurn()
   }
 
   switchTurn() {
@@ -117,12 +78,15 @@ class Game {
 
   updateScores(result) {
     this.players.forEach((player) => {
-      const type = result.type === "draws" ? "draws" : result.playerId === player.id ? "wins" : "losses"
-      player.updateScore(type)
+      if (result.type === "win") {
+        player.updateScore(result.playerId === player.id ? "wins" : "losses")
+      } else if (result.type === "full") {
+        player.updateScore("draws")
+      }
     })
   }
 
-  end() {
+  endGame() {
     this.board = new Array(9).fill(null)
     this.startTurn = Number(!this.startTurn)
     this.turn = this.startTurn
@@ -150,18 +114,14 @@ class Game {
         }
         return true
       })
-      if (winningPlayerId) {
-        return false
-      }
-      return true
     })
 
     if (winningPlayerId && winningPattern) {
-      return { playerId: winningPlayerId, pattern: winningPattern }
+      return { player: winningPlayerId, pattern: winningPattern }
     }
   }
 
-  checkIfDraw() {
+  checkIfFull() {
     return this.board.every((square) => square !== null)
   }
 
@@ -172,10 +132,6 @@ class Game {
       .map((square) => Number(square))
       .map((square, id) => (square ? id : null))
       .filter((square) => square !== null)
-  }
-
-  updateClient() {
-    this.io.to(this.id).emit("game update", this.clientGame)
   }
 }
 
@@ -193,7 +149,7 @@ function findGame() {
   let game = games.find((game) => game.players.length === 1)
   if (!game) {
     game = new Game(io)
-    addGame(game)
+    games.push(game)
   }
   return game
 }
@@ -204,14 +160,12 @@ io.on("connection", (socket) => {
 
   socket.on("new player", (username) => {
     player = new Player(username, socket)
-    socket.emit("new player", player.clientPlayer)
+    socket.emit("new player", player)
   })
 
-  socket.on("search game", () => {
-    if (!game) {
-      game = findGame()
-      game.addPlayer(player)
-    }
+  socket.on("find game", () => {
+    game = findGame()
+    game.addPlayer(player)
   })
 
   socket.on("play", (index) => {
@@ -221,12 +175,6 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     if (player && game) {
       game.removePlayer(player)
-      if (game.players.length === 0) {
-        removeGame(game)
-      }
     }
   })
 })
-
-const PORT = process.env.PORT || 3000
-server.listen(PORT, () => console.log(`Server started at http://localhost:${PORT}`))
