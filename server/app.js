@@ -73,9 +73,9 @@ class Game {
 
   removePlayer(player) {
     this.players = this.players.filter((p) => p.id !== player.id)
-    this.end()
     player.socket.leave(this.id)
     this.io.to(this.id).emit("user left")
+    this.end()
   }
 
   start() {

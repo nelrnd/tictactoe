@@ -1,337 +1,277 @@
-import { useEffect, useLayoutEffect, useState } from "react"
+import { useEffect, useState } from "react"
+import { socket } from "./socket"
 import { create } from "zustand"
 import {
   Box,
   Button,
   Card,
+  CardBody,
   Center,
   Container,
+  Flex,
   Heading,
   Input,
   Spinner,
   Stack,
-  Stat,
-  StatLabel,
-  StatNumber,
+  Table,
+  Tbody,
+  Td,
   Text,
+  Th,
+  Thead,
+  Tr,
 } from "@chakra-ui/react"
-import { socket } from "./socket"
 
 const useStore = create((set) => ({
-  player: null,
-  game: null,
-  wait: false,
   message: "",
-  setPlayer: (player) => set({ player }),
-  setGame: (game) => set({ game }),
-  setWait: (wait) => set({ wait }),
   setMessage: (message) => set({ message }),
+  wait: false,
+  setWait: (wait) => set({ wait }),
 }))
 
 function App() {
-  const player = useStore((state) => state.player)
-  const game = useStore((state) => state.game)
-  const setPlayer = useStore((state) => state.setPlayer)
-  const setGame = useStore((state) => state.setGame)
-  const setWait = useStore((state) => state.setWait)
+  const [player, setPlayer] = useState(null)
+  const [game, setGame] = useState(null)
   const setMessage = useStore((state) => state.setMessage)
-
-  const [playerList, setPlayerList] = useState([])
+  const setWait = useStore((state) => state.setWait)
 
   useEffect(() => {
-    function onPlayerCreated(player) {
+    function displayTurn(game) {
+      if (game) {
+        const myTurn = game.players[game.turn].id === player.id
+        const message = myTurn ? "It's your turn" : "Waiting for your turn"
+        setMessage(message)
+      }
+    }
+
+    function onNewPlayer(player) {
       setPlayer(player)
     }
 
-    function onGameFound(game) {
+    function onGameStart(game) {
       setGame(game)
+      displayTurn(game)
     }
 
-    function onPlayerList(players) {
-      setPlayerList(players)
-    }
-
-    function onUpdateGame(game) {
+    function onGameUpdate(game) {
+      setGame(game)
       setWait(false)
-      setGame(game)
+      displayTurn(game)
     }
 
-    function onWin(result) {
-      setWait(true)
-      const message = result.winningPlayer.id === player.id ? "You won" : "You lost"
+    function onUserLeft() {
+      setGame(null)
+      socket.emit("user left")
+    }
+
+    function onGameWin(result) {
+      const message = result.playerId === player.id ? "You won" : "You lost"
+      console.log(message)
       setMessage(message)
-      animateBlink(result.winningPattern)
-    }
-
-    function onDraw() {
       setWait(true)
-      const message = "This is a draw"
-      setMessage(message)
     }
 
-    socket.on("player created", onPlayerCreated)
-    socket.on("game found", onGameFound)
-    socket.on("player list", onPlayerList)
-    socket.on("update game", onUpdateGame)
-    socket.on("win", onWin)
-    socket.on("draw", onDraw)
+    function onGameDraw() {
+      setMessage("This is a draw")
+      setWait(true)
+    }
+
+    function onScoreUpdate(score) {
+      setPlayer({ ...player, score })
+    }
+
+    socket.on("new player", onNewPlayer)
+    socket.on("game start", onGameStart)
+    socket.on("game update", onGameUpdate)
+    socket.on("user left", onUserLeft)
+    socket.on("game win", onGameWin)
+    socket.on("game draw", onGameDraw)
+    socket.on("score update", onScoreUpdate)
 
     return () => {
-      socket.off("player created", onPlayerCreated)
-      socket.off("game found", onGameFound)
-      socket.off("player list", onPlayerList)
-      socket.off("update game", onUpdateGame)
-      socket.off("win", onWin)
-      socket.off("draw", onDraw)
+      socket.off("new player", onNewPlayer)
+      socket.off("game start", onGameStart)
+      socket.off("game update", onGameUpdate)
+      socket.off("user left", onUserLeft)
+      socket.off("game win", onGameWin)
+      socket.off("game draw", onGameDraw)
+      socket.off("score update", onScoreUpdate)
     }
-  })
+  }, [player, setMessage, setWait, game])
+
+  if (!player) {
+    return <PlayerForm />
+  }
 
   return (
-    <>
-      <Stat position="absolute" top="1rem" left="1rem">
-        <StatNumber>{playerList.length}</StatNumber>
-        <StatLabel>Users connected</StatLabel>
-      </Stat>
-
-      {!game ? <Home /> : <Game />}
-    </>
-  )
-}
-
-function Home() {
-  const player = useStore((state) => state.player)
-
-  return (
-    <Center minH="100vh">
-      <Container>
-        <Heading as="h1" fontSize="6xl" textAlign="center" paddingBottom="2rem">
+    <Flex minHeight="100vh" flexDirection="column">
+      <Box as="header" padding="2rem">
+        <Heading size="md" textAlign="center">
           TicTacToe
         </Heading>
-
-        {!player ? <PlayerForm /> : <Menu />}
-      </Container>
-    </Center>
+      </Box>
+      <Center flex="1" padding="1rem">
+        {game ? <Game game={game} player={player} /> : <GameLoading />}
+      </Center>
+    </Flex>
   )
 }
+
+export default App
 
 function PlayerForm() {
   const [username, setUsername] = useState("")
 
   function handleSubmit(event) {
     event.preventDefault()
-
-    if (username.trim() === "") {
-      setUsername("")
-      return
+    if (username) {
+      socket.emit("new player", username)
     }
-
-    socket.emit("create player", username)
   }
 
   return (
-    <Container>
-      <form onSubmit={handleSubmit}>
-        <Stack>
-          <Input
-            placeholder="Your username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            color="black"
-            backgroundColor="white"
-            size="lg"
-            required
-          />
-          <Button colorScheme="pink" size="lg" type="submit">
-            Continue
-          </Button>
-        </Stack>
-      </form>
-    </Container>
+    <Center minHeight="100vh">
+      <Container>
+        <Heading textAlign="center" marginBottom="2rem">
+          TicTacToe
+        </Heading>
+        <form onSubmit={handleSubmit}>
+          <Stack>
+            <Input placeholder="Enter your username" value={username} onChange={(e) => setUsername(e.target.value)} />
+            <Button type="submit" colorScheme="pink">
+              Continue
+            </Button>
+          </Stack>
+        </form>
+      </Container>
+    </Center>
   )
 }
 
-function Menu() {
-  const player = useStore((state) => state.player)
+function GameLoading() {
+  useEffect(() => {
+    socket.emit("search game")
+  }, [])
 
-  function handlePlay() {
-    socket.emit("find game")
+  return (
+    <Stack align="center" spacing={4}>
+      <Spinner size="xl" speed="0.65s" thickness="4px" color="pink.500" emptyColor="gray.200" />
+      <Text fontSize="xl" textAlign="center">
+        Searching for a game...
+      </Text>
+    </Stack>
+  )
+}
+
+function Game({ game, player }) {
+  const myTurn = game.players[game.turn].id === player.id
+  const otherPlayerUsername = game.players.find((p) => p.id !== player.id).username
+
+  return (
+    <Stack maxWidth="100%" align="center" spacing={10}>
+      <Heading>Playing against {otherPlayerUsername}</Heading>
+      <Message />
+      <Board board={game.board} myTurn={myTurn} />
+      <Score score={player.score} />
+    </Stack>
+  )
+}
+
+function Board({ board, myTurn }) {
+  const wait = useStore((state) => state.wait)
+
+  function play(index) {
+    socket.emit("play", index)
   }
 
   return (
-    <Container>
-      <Stack>
-        <Text fontSize="xl" paddingBottom="1rem">
-          Welcome, {player.username}!
-        </Text>
-        <Button colorScheme="pink" size="lg" onClick={handlePlay}>
-          Play
-        </Button>
-        <Button colorScheme="purple" size="lg">
-          Create private game
-        </Button>
-      </Stack>
-    </Container>
+    <div className="gameboard">
+      {board.map((square, id) => (
+        <button key={id} onClick={() => play(id)} disabled={wait || !myTurn || typeof square === "number"}>
+          {getMark(square)}
+        </button>
+      ))}
+      <svg width="858" height="858" viewBox="0 0 858 858" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M568 846L568 12" stroke="#E2E8F0" strokeWidth="24" strokeLinecap="round" />
+        <path d="M290 846L290 12" stroke="#E2E8F0" strokeWidth="24" strokeLinecap="round" />
+        <path d="M12 568L846 568" stroke="#E2E8F0" strokeWidth="24" strokeLinecap="round" />
+        <path d="M12 290L846 290" stroke="#E2E8F0" strokeWidth="24" strokeLinecap="round" />
+      </svg>
+    </div>
   )
 }
 
 function getMark(value) {
   switch (value) {
     case 0:
-      return "X"
+      return (
+        <svg width="134" height="133" viewBox="0 0 134 133" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect
+            x="-5.47852"
+            y="15.2347"
+            width="30"
+            height="175"
+            rx="15"
+            transform="rotate(-45 -5.47852 15.2347)"
+            fill="#3182CE"
+          />
+          <rect
+            x="118.265"
+            y="-5.97839"
+            width="30"
+            height="175"
+            rx="15"
+            transform="rotate(45 118.265 -5.97839)"
+            fill="#3182CE"
+          />
+        </svg>
+      )
+
     case 1:
-      return "O"
-    case null:
-      return ""
+      return (
+        <svg width="131" height="131" viewBox="0 0 131 131" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="65.5" cy="65.5" r="51.5" stroke="#D53F8C" strokeWidth="28" />
+        </svg>
+      )
+
     default:
-      break
+      return null
   }
-}
-
-function Game() {
-  const player = useStore((state) => state.player)
-  const game = useStore((state) => state.game)
-  const setMessage = useStore((state) => state.setMessage)
-  const myTurn = game.players[game.turn].id === player.id
-
-  useEffect(() => {
-    const message = myTurn ? "It's your turn" : "Waiting for your turn"
-    setMessage(message)
-  }, [game.board, myTurn, setMessage])
-
-  return (
-    <Container minH="100vh" display="flex" flexDirection="column">
-      <Header />
-      <Center flex="1">
-        {game.players.length === 1 ? (
-          <Loading message="Waiting for another player to join..." />
-        ) : (
-          <>
-            <Board />
-            <Message></Message>
-          </>
-        )}
-      </Center>
-    </Container>
-  )
-}
-
-function Board() {
-  const player = useStore((state) => state.player)
-  const game = useStore((state) => state.game)
-  const wait = useStore((state) => state.wait)
-  const myTurn = game.players[game.turn].id === player.id
-
-  function play(index) {
-    socket.emit("play", index)
-  }
-
-  return (
-    <Box className="gameboard">
-      {game.board.map((square, index) => (
-        <button key={index} onClick={() => play(index)} disabled={wait || square !== null || !myTurn}>
-          {getMark(square)}
-        </button>
-      ))}
-      <svg width="858" height="858" viewBox="0 0 858 858" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M568 846L568 12" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
-        <path d="M290 846L290 12" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
-        <path d="M12 568L846 568" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
-        <path d="M12 290L846 290" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
-      </svg>
-    </Box>
-  )
-}
-
-function Loading({ message }) {
-  return (
-    <Stack spacing={4} align="center">
-      <Spinner size="xl" speed="0.65s" thickness="4px" color="pink.500" emptyColor="gray.200" />
-      {message && (
-        <Text fontSize="xl" textAlign="center">
-          {message}
-        </Text>
-      )}
-    </Stack>
-  )
-}
-
-function Header() {
-  return (
-    <Box as="header" padding="1rem">
-      <Heading as="h1" size="md" textAlign="center">
-        TicTacToe
-      </Heading>
-    </Box>
-  )
 }
 
 function Message() {
   const message = useStore((state) => state.message)
 
+  if (!message) return null
+
   return (
-    <Card padding="2rem" border="solid 1px" borderColor="gray.200" position="absolute" bottom="1rem">
-      <Text fontSize="4xl">{message}</Text>
+    <Card width="24rem" maxWidth="100%" margin="auto">
+      <CardBody>
+        <Text fontSize="xl" textAlign="center">
+          {message}
+        </Text>
+      </CardBody>
     </Card>
   )
 }
 
-function Test() {
-  const game = {
-    id: 123,
-    board: [0, null, null, 1, 0, null, null, 1, 0],
-    players: [],
-    turn: 1,
-    isPrivate: false,
-  }
-
-  function play(index) {
-    socket.emit("play", index)
-  }
-
-  useLayoutEffect(() => {
-    const winningSquares = [0, 4, 8]
-    animateBlink(winningSquares)
-  }, [])
-
-  function animateBlink(indexArr) {
-    const buttons = document.querySelectorAll(".gameboard button")
-    buttons.forEach((button, index) => {
-      if (indexArr.includes(index)) {
-        button.classList.add("blink")
-        button.addEventListener("animationend", () => button.classList.remove("blink"), false)
-      }
-    })
-  }
-
+function Score({ score }) {
   return (
-    <Container minH="100vh" display="flex" flexDirection="column">
-      <Center flex="1">
-        <Box className="gameboard">
-          {game.board.map((square, index) => (
-            <button key={index} onClick={() => play(index)}>
-              {getMark(square)}
-            </button>
-          ))}
-          <svg width="858" height="858" viewBox="0 0 858 858" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M568 846L568 12" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
-            <path d="M290 846L290 12" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
-            <path d="M12 568L846 568" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
-            <path d="M12 290L846 290" stroke="#B0B0B0" strokeWidth="24" strokeLinecap="round" />
-          </svg>
-        </Box>
-      </Center>
-    </Container>
+    <Table>
+      <Thead>
+        <Tr>
+          <Th>Wins</Th>
+          <Th>Looses</Th>
+          <Th>Draws</Th>
+        </Tr>
+      </Thead>
+      <Tbody>
+        <Tr>
+          <Td>{score.wins}</Td>
+          <Td>{score.losses}</Td>
+          <Td>{score.draws}</Td>
+        </Tr>
+      </Tbody>
+    </Table>
   )
 }
-
-function animateBlink(indexArr) {
-  const buttons = document.querySelectorAll(".gameboard button")
-  buttons.forEach((button, index) => {
-    if (indexArr.includes(index)) {
-      button.classList.add("blink")
-      button.addEventListener("animationend", () => button.classList.remove("blink"), false)
-    }
-  })
-}
-
-export default App

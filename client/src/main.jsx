@@ -1,7 +1,7 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
 import { ChakraProvider, extendTheme } from "@chakra-ui/react"
-import App from "./NewApp.jsx"
+import App from "./App.jsx"
 import "@fontsource-variable/grandstander"
 import "./index.css"
 
@@ -21,6 +21,8 @@ const theme = extendTheme({
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
+    <ChakraProvider theme={theme}>
+      <App />
+    </ChakraProvider>
   </React.StrictMode>
 )
