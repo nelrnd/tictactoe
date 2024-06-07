@@ -63,11 +63,18 @@ function App() {
       animateBlink(result.winningPattern)
     }
 
+    function onDraw() {
+      setWait(true)
+      const message = "This is a draw"
+      setMessage(message)
+    }
+
     socket.on("player created", onPlayerCreated)
     socket.on("game found", onGameFound)
     socket.on("player list", onPlayerList)
     socket.on("update game", onUpdateGame)
     socket.on("win", onWin)
+    socket.on("draw", onDraw)
 
     return () => {
       socket.off("player created", onPlayerCreated)
@@ -75,6 +82,7 @@ function App() {
       socket.off("player list", onPlayerList)
       socket.off("update game", onUpdateGame)
       socket.off("win", onWin)
+      socket.off("draw", onDraw)
     }
   })
 

@@ -53,6 +53,13 @@ io.on("connection", (socket) => {
           emitGame()
         }, 2000)
       }
+      if (result.type === "draw") {
+        io.to(game.id).emit("draw")
+        setTimeout(() => {
+          game.reset()
+          emitGame()
+        }, 2000)
+      }
     } else {
     }
   })
