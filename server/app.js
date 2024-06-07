@@ -41,8 +41,20 @@ io.on("connection", (socket) => {
       return // not your turn
     }
 
-    game.play(index)
+    const result = game.play(index)
+
     emitGame()
+
+    if (result) {
+      if (result.type === "win") {
+        io.to(game.id).emit("win", result)
+        setTimeout(() => {
+          game.reset()
+          emitGame()
+        }, 2000)
+      }
+    } else {
+    }
   })
 
   socket.on("disconnect", () => {

@@ -20,14 +20,21 @@ import { socket } from "./socket"
 const useStore = create((set) => ({
   player: null,
   game: null,
-  setPlayer: (newPlayer) => set({ player: newPlayer }),
-  setGame: (newGame) => set({ game: newGame }),
+  wait: false,
+  message: "",
+  setPlayer: (player) => set({ player }),
+  setGame: (game) => set({ game }),
+  setWait: (wait) => set({ wait }),
+  setMessage: (message) => set({ message }),
 }))
 
 function App() {
+  const player = useStore((state) => state.player)
   const game = useStore((state) => state.game)
   const setPlayer = useStore((state) => state.setPlayer)
   const setGame = useStore((state) => state.setGame)
+  const setWait = useStore((state) => state.setWait)
+  const setMessage = useStore((state) => state.setMessage)
 
   const [playerList, setPlayerList] = useState([])
 
@@ -38,30 +45,36 @@ function App() {
 
     function onGameFound(game) {
       setGame(game)
-      console.log(game.id)
     }
 
     function onPlayerList(players) {
       setPlayerList(players)
-      console.log(players)
     }
 
     function onUpdateGame(game) {
+      setWait(false)
       setGame(game)
-      console.log("update")
-      console.log(game)
+    }
+
+    function onWin(result) {
+      setWait(true)
+      const message = result.winningPlayer.id === player.id ? "You won" : "You lost"
+      setMessage(message)
+      animateBlink(result.winningPattern)
     }
 
     socket.on("player created", onPlayerCreated)
     socket.on("game found", onGameFound)
     socket.on("player list", onPlayerList)
     socket.on("update game", onUpdateGame)
+    socket.on("win", onWin)
 
     return () => {
       socket.off("player created", onPlayerCreated)
       socket.off("game found", onGameFound)
       socket.off("player list", onPlayerList)
       socket.off("update game", onUpdateGame)
+      socket.off("win", onWin)
     }
   })
 
@@ -72,9 +85,7 @@ function App() {
         <StatLabel>Users connected</StatLabel>
       </Stat>
 
-      {<Test />}
-
-      {/*!game ? <Home /> : <Game />*/}
+      {!game ? <Home /> : <Game />}
     </>
   )
 }
@@ -171,7 +182,13 @@ function getMark(value) {
 function Game() {
   const player = useStore((state) => state.player)
   const game = useStore((state) => state.game)
+  const setMessage = useStore((state) => state.setMessage)
   const myTurn = game.players[game.turn].id === player.id
+
+  useEffect(() => {
+    const message = myTurn ? "It's your turn" : "Waiting for your turn"
+    setMessage(message)
+  }, [game.board, myTurn, setMessage])
 
   return (
     <Container minH="100vh" display="flex" flexDirection="column">
@@ -182,7 +199,7 @@ function Game() {
         ) : (
           <>
             <Board />
-            <Message>{myTurn ? "It's your turn" : "Waiting for your turn"}</Message>
+            <Message></Message>
           </>
         )}
       </Center>
@@ -193,6 +210,7 @@ function Game() {
 function Board() {
   const player = useStore((state) => state.player)
   const game = useStore((state) => state.game)
+  const wait = useStore((state) => state.wait)
   const myTurn = game.players[game.turn].id === player.id
 
   function play(index) {
@@ -202,7 +220,7 @@ function Board() {
   return (
     <Box className="gameboard">
       {game.board.map((square, index) => (
-        <button key={index} onClick={() => play(index)} disabled={square !== null || !myTurn}>
+        <button key={index} onClick={() => play(index)} disabled={wait || square !== null || !myTurn}>
           {getMark(square)}
         </button>
       ))}
@@ -239,10 +257,12 @@ function Header() {
   )
 }
 
-function Message({ children }) {
+function Message() {
+  const message = useStore((state) => state.message)
+
   return (
     <Card padding="2rem" border="solid 1px" borderColor="gray.200" position="absolute" bottom="1rem">
-      <Text fontSize="4xl">{children}</Text>
+      <Text fontSize="4xl">{message}</Text>
     </Card>
   )
 }
@@ -294,6 +314,16 @@ function Test() {
       </Center>
     </Container>
   )
+}
+
+function animateBlink(indexArr) {
+  const buttons = document.querySelectorAll(".gameboard button")
+  buttons.forEach((button, index) => {
+    if (indexArr.includes(index)) {
+      button.classList.add("blink")
+      button.addEventListener("animationend", () => button.classList.remove("blink"), false)
+    }
+  })
 }
 
 export default App

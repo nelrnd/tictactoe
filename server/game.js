@@ -17,6 +17,7 @@ class Game {
     this.board = new Array(9).fill(null)
     this.players = []
     this.turn = 0
+    this.lastGameTurn = 0
     this.isPrivate = isPrivate
   }
 
@@ -38,22 +39,12 @@ class Game {
     this.switchTurn()
 
     const win = this.checkIfWin()
-    if (win !== null) {
-      this.reset()
-      this.players = this.players.map((player) => ({
-        ...player,
-        score: {
-          ...player.score,
-          wins: win.id === player.id ? player.score.wins++ : player.score.wins,
-          losses: win.id !== player.id ? player.score.losses++ : player.score.losses,
-        },
-      }))
-      return { type: "win", player: win }
+    if (win) {
+      return { type: "win", ...win }
     }
 
     const full = this.checkIfFull()
     if (full) {
-      this.reset()
       return { type: "draw" }
     }
   }
@@ -64,7 +55,8 @@ class Game {
 
   checkIfWin() {
     const players = [0, 1]
-    let win = null
+    let winningPlayer = null
+    let winningPattern = null
 
     players.every((player) => {
       return winningPatterns.every((pattern) => {
@@ -78,14 +70,20 @@ class Game {
             }
           })
         if (patternWin) {
-          win = this.players[player]
+          winningPlayer = this.players[player]
+          winningPattern = pattern
+            .split("")
+            .map((square, index) => (square !== "0" ? index : square))
+            .filter((square) => square !== "0")
           return false
         }
         return true
       })
     })
 
-    return win
+    if (winningPlayer && winningPattern) {
+      return { winningPlayer, winningPattern }
+    }
   }
 
   checkIfFull() {
@@ -94,7 +92,8 @@ class Game {
 
   reset() {
     this.board = new Array(9).fill(null)
-    this.turn = 0
+    this.turn = Number(!this.lastGameTurn)
+    this.lastGameTurn = Number(!this.lastGameTurn)
   }
 }
 
