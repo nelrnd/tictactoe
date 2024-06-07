@@ -108,6 +108,7 @@ function GameLoading() {
 function Game({ game, player }) {
   const setMessage = useStore((state) => state.setMessage)
   const myTurn = game.players[game.turn].id === player.id
+  const otherPlayerUsername = game.players.find((p) => p.id !== player.id).username
 
   useEffect(() => {
     setMessage(myTurn ? "It's your turn" : "Wait for your turn")
@@ -115,6 +116,7 @@ function Game({ game, player }) {
 
   return (
     <div>
+      <h1>Playing against {otherPlayerUsername}</h1>
       <Message />
       <Board board={game.board} myTurn={myTurn} />
     </div>
