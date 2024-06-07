@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require("uuid")
 
 const app = express()
 const server = createServer(app)
-const io = new Server(server, { cors: { origin: "http://localhost:5173" } })
+const io = new Server(server, { cors: { origin: "https://tictactoe.nel.dev/" } })
 
 const winningPatterns = [
   "111000000",
