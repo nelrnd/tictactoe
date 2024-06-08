@@ -126,6 +126,7 @@ function PlayerForm() {
     event.preventDefault()
     if (username) {
       socket.emit("new player", username)
+      console.log("hey")
     }
   }
 
