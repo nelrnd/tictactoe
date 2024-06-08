@@ -198,6 +198,8 @@ function findGame() {
   return game
 }
 
+app.get("/", (req, res) => res.send("Working"))
+
 io.on("connection", (socket) => {
   let player
   let game
